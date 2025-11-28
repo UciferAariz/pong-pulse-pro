@@ -115,7 +115,8 @@ const MainMenu = ({ onModeSelect }: MainMenuProps) => {
           <>
             <Button 
               variant="outline" 
-              size="lg" 
+              size="lg"
+              onClick={() => navigate('/profile')}
               className="border-primary/50 hover:border-primary hover:bg-primary/10"
             >
               <User className="mr-2" />
@@ -123,7 +124,8 @@ const MainMenu = ({ onModeSelect }: MainMenuProps) => {
             </Button>
             <Button 
               variant="outline" 
-              size="lg" 
+              size="lg"
+              onClick={() => navigate('/leaderboard')}
               className="border-primary/50 hover:border-primary hover:bg-primary/10"
             >
               <Trophy className="mr-2" />
@@ -152,7 +154,8 @@ const MainMenu = ({ onModeSelect }: MainMenuProps) => {
             </Button>
             <Button 
               variant="outline" 
-              size="lg" 
+              size="lg"
+              onClick={() => navigate('/leaderboard')}
               className="border-primary/50 hover:border-primary hover:bg-primary/10"
             >
               <Trophy className="mr-2" />

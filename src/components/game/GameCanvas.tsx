@@ -7,10 +7,11 @@ import ExitConfirmDialog from './ExitConfirmDialog';
 interface GameCanvasProps {
   mode: 'local' | 'online' | 'ai';
   side?: 'left' | 'right';
+  difficulty?: 'easy' | 'medium' | 'hard';
   onGameEnd?: () => void;
 }
 
-const GameCanvas = ({ mode, side = 'left', onGameEnd }: GameCanvasProps) => {
+const GameCanvas = ({ mode, side = 'left', difficulty = 'medium', onGameEnd }: GameCanvasProps) => {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -36,6 +37,7 @@ const GameCanvas = ({ mode, side = 'left', onGameEnd }: GameCanvasProps) => {
       gameRef.current?.scene.start('GameScene', { 
         mode, 
         side,
+        difficulty,
         onExitRequest: () => setShowExitDialog(true)
       });
     });
