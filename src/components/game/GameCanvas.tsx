@@ -31,14 +31,14 @@ const GameCanvas = ({ mode, side = 'left', onGameEnd }: GameCanvasProps) => {
     
     gameRef.current = new Phaser.Game(config);
     
-    // Start game scene with exit callback
-    if (gameRef.current.scene.keys['GameScene']) {
-      gameRef.current.scene.start('GameScene', { 
+    // Wait for game to be ready, then start scene with proper data
+    gameRef.current.events.once('ready', () => {
+      gameRef.current?.scene.start('GameScene', { 
         mode, 
         side,
         onExitRequest: () => setShowExitDialog(true)
       });
-    }
+    });
     
     // Auto-focus the game canvas
     setTimeout(() => {
