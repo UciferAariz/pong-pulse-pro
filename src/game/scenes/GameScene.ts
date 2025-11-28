@@ -33,9 +33,8 @@ export class GameScene extends Phaser.Scene {
   private gameMode: 'local' | 'online' | 'ai';
   private localSide: 'left' | 'right';
   private difficulty: 'easy' | 'medium' | 'hard' = 'medium';
-  private aiSpeed: number = 0.65;
-  private aiReactionDelay: number = 0;
-  private aiLastUpdate: number = 0;
+  private aiSpeed: number = 400;
+  private aiThreshold: number = 30;
   private isPaused: boolean = false;
   public onExitRequest?: () => void;
   
@@ -51,19 +50,19 @@ export class GameScene extends Phaser.Scene {
     this.difficulty = data.difficulty || 'medium';
     this.onExitRequest = data.onExitRequest;
     
-    // Set AI difficulty parameters
+    // Set AI difficulty parameters - constant velocities for smooth movement
     switch (this.difficulty) {
       case 'easy':
-        this.aiSpeed = 0.4;
-        this.aiReactionDelay = 150;
+        this.aiSpeed = 300; // Slower constant speed
+        this.aiThreshold = 50; // Larger dead zone
         break;
       case 'medium':
-        this.aiSpeed = 0.65;
-        this.aiReactionDelay = 80;
+        this.aiSpeed = 450; // Medium constant speed
+        this.aiThreshold = 30; // Medium dead zone
         break;
       case 'hard':
-        this.aiSpeed = 0.9;
-        this.aiReactionDelay = 30;
+        this.aiSpeed = 550; // Faster constant speed
+        this.aiThreshold = 20; // Smaller dead zone
         break;
     }
   }
@@ -314,32 +313,20 @@ export class GameScene extends Phaser.Scene {
   }
   
   private handleAI(delta: number) {
-    // Add reaction delay for realism
-    this.aiLastUpdate += delta;
-    if (this.aiLastUpdate < this.aiReactionDelay) {
-      return;
-    }
-    this.aiLastUpdate = 0;
-
     const ballY = this.ball.sprite.y;
     const paddleY = this.rightPaddle.sprite.y;
-    const ballVelocity = this.ball.sprite.body as Phaser.Physics.Arcade.Body;
+    const paddleBody = this.rightPaddle.sprite.body as Phaser.Physics.Arcade.Body;
     
-    // Predict ball position for smoother movement
-    const predictionTime = 0.3; // seconds ahead
-    const predictedBallY = ballY + (ballVelocity.velocity.y * predictionTime);
-    
-    // Calculate smooth target with interpolation
-    const targetY = Phaser.Math.Linear(paddleY, predictedBallY, this.aiSpeed);
-    const threshold = 15; // Dead zone to prevent jittering
-    
-    // Smooth movement towards target
-    if (targetY < paddleY - threshold) {
-      this.rightPaddle.move('up', delta * this.aiSpeed);
-    } else if (targetY > paddleY + threshold) {
-      this.rightPaddle.move('down', delta * this.aiSpeed);
+    // Simple smooth tracking: move towards ball at constant velocity
+    if (ballY < paddleY - this.aiThreshold) {
+      // Ball is above paddle - move up at constant speed
+      paddleBody.setVelocityY(-this.aiSpeed);
+    } else if (ballY > paddleY + this.aiThreshold) {
+      // Ball is below paddle - move down at constant speed
+      paddleBody.setVelocityY(this.aiSpeed);
     } else {
-      this.rightPaddle.move('stop', delta);
+      // Ball is within dead zone - stop moving
+      paddleBody.setVelocityY(0);
     }
   }
   
