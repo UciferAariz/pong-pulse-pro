@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { Paddle } from '../entities/Paddle';
 import { Ball } from '../entities/Ball';
 import { GAME_CONFIG, PADDLE_CONFIG, GAME_RULES } from '../config/gameConfig';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GameState {
   leftScore: number;
@@ -31,6 +32,10 @@ export class GameScene extends Phaser.Scene {
   private escKey!: Phaser.Input.Keyboard.Key;
   private gameMode: 'local' | 'online' | 'ai';
   private localSide: 'left' | 'right';
+  private difficulty: 'easy' | 'medium' | 'hard' = 'medium';
+  private aiSpeed: number = 0.65;
+  private aiReactionDelay: number = 0;
+  private aiLastUpdate: number = 0;
   private isPaused: boolean = false;
   public onExitRequest?: () => void;
   
@@ -40,10 +45,27 @@ export class GameScene extends Phaser.Scene {
     this.localSide = 'left';
   }
   
-  init(data: { mode?: 'local' | 'online' | 'ai'; side?: 'left' | 'right'; onExitRequest?: () => void }) {
+  init(data: { mode?: 'local' | 'online' | 'ai'; side?: 'left' | 'right'; difficulty?: 'easy' | 'medium' | 'hard'; onExitRequest?: () => void }) {
     this.gameMode = data.mode || 'local';
     this.localSide = data.side || 'left';
+    this.difficulty = data.difficulty || 'medium';
     this.onExitRequest = data.onExitRequest;
+    
+    // Set AI difficulty parameters
+    switch (this.difficulty) {
+      case 'easy':
+        this.aiSpeed = 0.4;
+        this.aiReactionDelay = 150;
+        break;
+      case 'medium':
+        this.aiSpeed = 0.65;
+        this.aiReactionDelay = 80;
+        break;
+      case 'hard':
+        this.aiSpeed = 0.9;
+        this.aiReactionDelay = 30;
+        break;
+    }
   }
   
   preload() {
@@ -292,15 +314,30 @@ export class GameScene extends Phaser.Scene {
   }
   
   private handleAI(delta: number) {
+    // Add reaction delay for realism
+    this.aiLastUpdate += delta;
+    if (this.aiLastUpdate < this.aiReactionDelay) {
+      return;
+    }
+    this.aiLastUpdate = 0;
+
     const ballY = this.ball.sprite.y;
     const paddleY = this.rightPaddle.sprite.y;
-    const threshold = 20; // Dead zone to prevent jittering
+    const ballVelocity = this.ball.sprite.body as Phaser.Physics.Arcade.Body;
     
-    // AI follows the ball with some delay for realistic difficulty
-    if (ballY < paddleY - threshold) {
-      this.rightPaddle.move('up', delta);
-    } else if (ballY > paddleY + threshold) {
-      this.rightPaddle.move('down', delta);
+    // Predict ball position for smoother movement
+    const predictionTime = 0.3; // seconds ahead
+    const predictedBallY = ballY + (ballVelocity.velocity.y * predictionTime);
+    
+    // Calculate smooth target with interpolation
+    const targetY = Phaser.Math.Linear(paddleY, predictedBallY, this.aiSpeed);
+    const threshold = 15; // Dead zone to prevent jittering
+    
+    // Smooth movement towards target
+    if (targetY < paddleY - threshold) {
+      this.rightPaddle.move('up', delta * this.aiSpeed);
+    } else if (targetY > paddleY + threshold) {
+      this.rightPaddle.move('down', delta * this.aiSpeed);
     } else {
       this.rightPaddle.move('stop', delta);
     }
@@ -368,9 +405,51 @@ export class GameScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
     
+    // Save match result for AI mode
+    if (this.gameMode === 'ai') {
+      this.saveMatch(winner);
+    }
+    
     this.time.delayedCall(3000, () => {
       this.scene.start('MenuScene');
     });
+  }
+  
+  private async saveMatch(winner: 'left' | 'right') {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+      
+      // Get user's profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!profile) return;
+      
+      // Save match
+      const { error } = await supabase
+        .from('matches')
+        .insert({
+          room_id: `ai_${Date.now()}`,
+          game_mode: 'ai',
+          player_left_id: profile.id,
+          player_right_id: null,
+          score_left: this.gameState.leftScore,
+          score_right: this.gameState.rightScore,
+          winner_id: winner === 'left' ? profile.id : null,
+          ended_at: new Date().toISOString(),
+        });
+      
+      if (error) {
+        console.error('Error saving match:', error);
+      }
+    } catch (error) {
+      console.error('Error saving match:', error);
+    }
   }
   
   shutdown() {

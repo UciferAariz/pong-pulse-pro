@@ -3,22 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import GameCanvas from '@/components/game/GameCanvas';
 import MainMenu from '@/components/game/MainMenu';
 import RoomManager from '@/components/game/RoomManager';
+import DifficultyDialog from '@/components/game/DifficultyDialog';
 
-type GameState = 'menu' | 'room-manager' | 'local-game' | 'ai-game' | 'online-game';
+type GameState = 'menu' | 'room-manager' | 'local-game' | 'ai-game' | 'online-game' | 'difficulty-select';
+type Difficulty = 'easy' | 'medium' | 'hard';
 
 const Game = () => {
   const [gameState, setGameState] = useState<GameState>('menu');
   const [isHost, setIsHost] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const navigate = useNavigate();
   
   const handleModeSelect = (mode: 'local' | 'online' | 'ai') => {
     if (mode === 'local') {
       setGameState('local-game');
     } else if (mode === 'ai') {
-      setGameState('ai-game');
+      setGameState('difficulty-select');
     } else {
       setGameState('room-manager');
     }
+  };
+
+  const handleDifficultySelect = (selectedDifficulty: Difficulty) => {
+    setDifficulty(selectedDifficulty);
+    setGameState('ai-game');
   };
   
   const handleRoomReady = (roomId: string, host: boolean) => {
@@ -50,10 +58,23 @@ const Game = () => {
     );
   }
   
+  if (gameState === 'difficulty-select') {
+    return (
+      <div className="min-h-screen bg-deep-space">
+        <MainMenu onModeSelect={handleModeSelect} />
+        <DifficultyDialog
+          open={true}
+          onSelect={handleDifficultySelect}
+          onCancel={handleBack}
+        />
+      </div>
+    );
+  }
+
   if (gameState === 'ai-game') {
     return (
       <div className="min-h-screen bg-deep-space">
-        <GameCanvas mode="ai" onGameEnd={handleGameEnd} />
+        <GameCanvas mode="ai" difficulty={difficulty} onGameEnd={handleGameEnd} />
       </div>
     );
   }
